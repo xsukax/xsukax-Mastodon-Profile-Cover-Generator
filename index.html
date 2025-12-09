@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>xsukax Mastodon Profile Cover Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif; background: #f6f8fa; min-height: 100vh; color: #24292f; }
+        .notification { position: fixed; top: 20px; right: 20px; background: white; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; box-shadow: 0 8px 24px rgba(27, 31, 36, 0.15); z-index: 1000; min-width: 320px; animation: slideIn 0.3s ease-out; }
+        .notification.success { border-left: 4px solid #2da44e; }
+        .notification.error { border-left: 4px solid #cf222e; }
+        .notification.hiding { animation: slideOut 0.3s ease-in; }
+        @keyframes slideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(400px); opacity: 0; } }
+        input[type="text"], textarea { width: 100%; padding: 10px 12px; border: 1px solid #d0d7de; border-radius: 6px; font-size: 14px; transition: border-color 0.2s; background: #ffffff; color: #24292f; }
+        input[type="text"]:focus, textarea:focus { outline: none; border-color: #0969da; box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1); }
+        input[type="text"]:disabled { background: #f6f8fa; color: #57606a; cursor: not-allowed; }
+        textarea { resize: vertical; min-height: 80px; font-family: inherit; }
+        .btn-primary { background: #2da44e; color: white; padding: 10px 20px; border: none; border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer; transition: background-color 0.2s; }
+        .btn-primary:hover { background: #2c974b; }
+        .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; background: #94d3a2; }
+        .btn-secondary { background: #0969da; color: white; padding: 10px 20px; border: none; border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer; transition: background-color 0.2s; }
+        .btn-secondary:hover { background: #0860ca; }
+        .canvas-wrapper { position: relative; width: 100%; padding-top: 33.33%; background: #f6f8fa; border-radius: 6px; overflow: hidden; }
+        .canvas-wrapper canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 6px; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body class="p-4 md:p-6">
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <header class="bg-white rounded-xl border border-gray-200 shadow-sm p-8 mb-6">
+            <h1 class="text-3xl font-semibold text-gray-900 mb-2">🎨 xsukax Mastodon Profile Cover Generator</h1>
+            <p class="text-gray-600 mb-2">Create stunning cover images for your Mastodon profile</p>
+        </header>
+
+        <!-- Input Section -->
+        <section class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 mb-6">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4">Enter Your Mastodon Profile</h2>
+            
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Profile URL or Username</label>
+                <input type="text" id="profileInput" placeholder="https://infosec.exchange/@xsukax or @xsukax@infosec.exchange">
+                <p class="text-xs text-gray-500 mt-2">💡 Enter your full Mastodon URL or username with instance</p>
+            </div>
+
+            <div class="flex gap-3 flex-wrap mb-4">
+                <button onclick="fetchProfile()" class="btn-primary" id="fetchBtn">Fetch Profile</button>
+                <button onclick="tryExample()" class="btn-secondary">Try Example</button>
+            </div>
+
+            <!-- Editable Fields -->
+            <div id="editableFields" class="hidden mt-6 pt-6 border-t border-gray-200">
+                <h3 class="text-base font-semibold text-gray-900 mb-4">Edit Profile Information</h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Username (read-only)</label>
+                        <input type="text" id="usernameField" disabled>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Display Name</label>
+                        <input type="text" id="displayNameField" placeholder="Your Name">
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Bio</label>
+                    <textarea id="bioField" placeholder="Tell us about yourself..."></textarea>
+                </div>
+
+                <button onclick="generateCovers()" class="btn-primary" id="generateBtn">Generate Covers</button>
+                <p class="text-sm text-blue-600 font-medium mt-3">🎨 New colors generated each time you click "Generate Covers"</p>
+            </div>
+        </section>
+
+        <!-- Loading State -->
+        <div id="loading" class="hidden bg-white rounded-xl border border-gray-200 shadow-sm p-8 text-center">
+            <p class="text-gray-600 text-lg">🎨 Generating your luxury cover images...</p>
+        </div>
+
+        <!-- Results -->
+        <div id="results" class="hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Template 1 -->
+                <article class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+                    <div class="canvas-wrapper">
+                        <canvas id="canvas1" width="1500" height="500"></canvas>
+                    </div>
+                    <div class="p-4">
+                        <h3 class="text-base font-semibold text-blue-600 mb-2">Luxury Minimal</h3>
+                        <p class="text-sm text-gray-600 mb-3">Sophisticated gradients with premium accents</p>
+                        <button onclick="downloadCover('canvas1', 'luxury-minimal')" class="btn-secondary w-full">Download Cover</button>
+                    </div>
+                </article>
+
+                <!-- Template 2 -->
+                <article class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+                    <div class="canvas-wrapper">
+                        <canvas id="canvas2" width="1500" height="500"></canvas>
+                    </div>
+                    <div class="p-4">
+                        <h3 class="text-base font-semibold text-blue-600 mb-2">Royal Elegance</h3>
+                        <p class="text-sm text-gray-600 mb-3">Regal design with metallic highlights</p>
+                        <button onclick="downloadCover('canvas2', 'royal-elegance')" class="btn-secondary w-full">Download Cover</button>
+                    </div>
+                </article>
+
+                <!-- Template 3 -->
+                <article class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+                    <div class="canvas-wrapper">
+                        <canvas id="canvas3" width="1500" height="500"></canvas>
+                    </div>
+                    <div class="p-4">
+                        <h3 class="text-base font-semibold text-blue-600 mb-2">Premium Glow</h3>
+                        <p class="text-sm text-gray-600 mb-3">Luminous effects with refined aesthetics</p>
+                        <button onclick="downloadCover('canvas3', 'premium-glow')" class="btn-secondary w-full">Download Cover</button>
+                    </div>
+                </article>
+
+                <!-- Template 4 -->
+                <article class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+                    <div class="canvas-wrapper">
+                        <canvas id="canvas4" width="1500" height="500"></canvas>
+                    </div>
+                    <div class="p-4">
+                        <h3 class="text-base font-semibold text-blue-600 mb-2">Executive Wave</h3>
+                        <p class="text-sm text-gray-600 mb-3">Dynamic waves with professional polish</p>
+                        <button onclick="downloadCover('canvas4', 'executive-wave')" class="btn-secondary w-full">Download Cover</button>
+                    </div>
+                </article>
+
+                <!-- Template 5 -->
+                <article class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+                    <div class="canvas-wrapper">
+                        <canvas id="canvas5" width="1500" height="500"></canvas>
+                    </div>
+                    <div class="p-4">
+                        <h3 class="text-base font-semibold text-blue-600 mb-2">Prestige Geometric</h3>
+                        <p class="text-sm text-gray-600 mb-3">Precision shapes with luxe details</p>
+                        <button onclick="downloadCover('canvas5', 'prestige-geometric')" class="btn-secondary w-full">Download Cover</button>
+                    </div>
+                </article>
+
+                <!-- Template 6 -->
+                <article class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+                    <div class="canvas-wrapper">
+                        <canvas id="canvas6" width="1500" height="500"></canvas>
+                    </div>
+                    <div class="p-4">
+                        <h3 class="text-base font-semibold text-blue-600 mb-2">Celestial Aura</h3>
+                        <p class="text-sm text-gray-600 mb-3">Ethereal glows with cosmic elegance</p>
+                        <button onclick="downloadCover('canvas6', 'celestial-aura')" class="btn-secondary w-full">Download Cover</button>
+                    </div>
+                </article>
+
+                <!-- Template 7 -->
+                <article class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+                    <div class="canvas-wrapper">
+                        <canvas id="canvas7" width="1500" height="500"></canvas>
+                    </div>
+                    <div class="p-4">
+                        <h3 class="text-base font-semibold text-blue-600 mb-2">Apex Tech</h3>
+                        <p class="text-sm text-gray-600 mb-3">High-tech precision with luxury finish</p>
+                        <button onclick="downloadCover('canvas7', 'apex-tech')" class="btn-secondary w-full">Download Cover</button>
+                    </div>
+                </article>
+
+                <!-- Template 8 -->
+                <article class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+                    <div class="canvas-wrapper">
+                        <canvas id="canvas8" width="1500" height="500"></canvas>
+                    </div>
+                    <div class="p-4">
+                        <h3 class="text-base font-semibold text-blue-600 mb-2">Opulent Flow</h3>
+                        <p class="text-sm text-gray-600 mb-3">Flowing artistry with premium touches</p>
+                        <button onclick="downloadCover('canvas8', 'opulent-flow')" class="btn-secondary w-full">Download Cover</button>
+                    </div>
+                </article>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const colorSchemes = [
+            // Light Schemes
+            { bg1: '#f0f4ff', bg2: '#e0e7ff', accent1: '#667eea', accent2: '#764ba2', text: '#1a202c', subtext: '#4a5568' },
+            { bg1: '#fff5f7', bg2: '#ffe0e9', accent1: '#f56565', accent2: '#ed64a6', text: '#2d3748', subtext: '#4a5568' },
+            { bg1: '#ecfdf5', bg2: '#d1fae5', accent1: '#10b981', accent2: '#059669', text: '#064e3b', subtext: '#065f46' },
+            { bg1: '#fef3c7', bg2: '#fde68a', accent1: '#f59e0b', accent2: '#d97706', text: '#78350f', subtext: '#92400e' },
+            { bg1: '#dbeafe', bg2: '#bfdbfe', accent1: '#3b82f6', accent2: '#2563eb', text: '#1e3a8a', subtext: '#1e40af' },
+            { bg1: '#fae8ff', bg2: '#f3e8ff', accent1: '#a855f7', accent2: '#9333ea', text: '#581c87', subtext: '#6b21a8' },
+            { bg1: '#e0f2fe', bg2: '#bae6fd', accent1: '#0ea5e9', accent2: '#0284c7', text: '#0c4a6e', subtext: '#075985' },
+            { bg1: '#ffe4e6', bg2: '#fecdd3', accent1: '#f43f5e', accent2: '#e11d48', text: '#881337', subtext: '#9f1239' },
+            { bg1: '#f5f3ff', bg2: '#ede9fe', accent1: '#8b5cf6', accent2: '#7c3aed', text: '#4c1d95', subtext: '#5b21b6' },
+            { bg1: '#fef2f2', bg2: '#fee2e2', accent1: '#dc2626', accent2: '#b91c1c', text: '#7f1d1d', subtext: '#991b1b' },
+            { bg1: '#ecfccb', bg2: '#d9f99d', accent1: '#84cc16', accent2: '#65a30d', text: '#365314', subtext: '#3f6212' },
+            { bg1: '#fefce8', bg2: '#fef9c3', accent1: '#eab308', accent2: '#ca8a04', text: '#713f12', subtext: '#854d0e' },
+            { bg1: '#fffbeb', bg2: '#fef3c7', accent1: '#fb923c', accent2: '#f97316', text: '#7c2d12', subtext: '#9a3412' },
+            { bg1: '#f0fdfa', bg2: '#ccfbf1', accent1: '#14b8a6', accent2: '#0d9488', text: '#134e4a', subtext: '#115e59' },
+            // Dark Premium Schemes
+            { bg1: '#0a0e27', bg2: '#1a1f3a', accent1: '#ffd700', accent2: '#ffed4e', text: '#f5f5f5', subtext: '#d4d4d4' },
+            { bg1: '#0f0f0f', bg2: '#1c1c1c', accent1: '#c0c0c0', accent2: '#e8e8e8', text: '#ffffff', subtext: '#cccccc' },
+            { bg1: '#1a0b2e', bg2: '#2d1b4e', accent1: '#ff00ff', accent2: '#ff69b4', text: '#f0e6ff', subtext: '#d4c5f9' },
+            { bg1: '#0d1117', bg2: '#161b22', accent1: '#00d4ff', accent2: '#00ffff', text: '#e6edf3', subtext: '#7d8590' },
+            { bg1: '#001219', bg2: '#005f73', accent1: '#00b4d8', accent2: '#90e0ef', text: '#f1faee', subtext: '#a8dadc' },
+            { bg1: '#370617', bg2: '#6a040f', accent1: '#f48c06', accent2: '#ffba08', text: '#fefae0', subtext: '#f4d58d' },
+            { bg1: '#0b2b26', bg2: '#1a4d2e', accent1: '#d4af37', accent2: '#f4e04d', text: '#f5f5dc', subtext: '#e8e5d1' },
+            { bg1: '#1c0f13', bg2: '#3d1e29', accent1: '#ff7f50', accent2: '#ffb347', text: '#faf0e6', subtext: '#e8dcc5' },
+            { bg1: '#0f0a3c', bg2: '#1a0f5c', accent1: '#8b5cf6', accent2: '#c084fc', text: '#f3e8ff', subtext: '#e9d5ff' },
+            { bg1: '#0c2d48', bg2: '#145374', accent1: '#00c2ff', accent2: '#5ce1e6', text: '#f0f8ff', subtext: '#d4e7f2' },
+            { bg1: '#1c1917', bg2: '#292524', accent1: '#fbbf24', accent2: '#fcd34d', text: '#fafaf9', subtext: '#e7e5e4' },
+            { bg1: '#1e1b4b', bg2: '#312e81', accent1: '#c026d3', accent2: '#e879f9', text: '#faf5ff', subtext: '#e9d5ff' },
+            { bg1: '#172554', bg2: '#1e3a8a', accent1: '#3b82f6', accent2: '#60a5fa', text: '#eff6ff', subtext: '#dbeafe' },
+            { bg1: '#18181b', bg2: '#27272a', accent1: '#f97316', accent2: '#fb923c', text: '#fafafa', subtext: '#e4e4e7' }
+        ];
+
+        let currentAvatar = null;
+
+        function showNotification(message, type = 'success') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.innerHTML = `
+                <div class="flex items-start gap-3">
+                    <div class="flex-1">
+                        <p class="text-sm font-medium text-gray-900">${type === 'success' ? '✓' : '✕'} ${message}</p>
+                    </div>
+                    <button onclick="this.parentElement.parentElement.remove()" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                        </svg>
+                    </button>
+                </div>
+            `;
+            document.body.appendChild(notification);
+            setTimeout(() => {
+                notification.classList.add('hiding');
+                setTimeout(() => notification.remove(), 300);
+            }, 4000);
+        }
+
+        function parseMastodonInput(input) {
+            input = input.trim();
+            
+            const urlPattern = /^https?:\/\/([^\/]+)\/@(.+?)(?:\/.*)?$/;
+            const urlMatch = input.match(urlPattern);
+            if (urlMatch) {
+                return { instance: urlMatch[1], username: urlMatch[2] };
+            }
+            
+            const fullUsernamePattern = /^@?([^@]+)@(.+)$/;
+            const fullMatch = input.match(fullUsernamePattern);
+            if (fullMatch) {
+                return { instance: fullMatch[2], username: fullMatch[1] };
+            }
+            
+            return null;
+        }
+
+        function getRandomSchemes(count) {
+            const shuffled = [...colorSchemes].sort(() => Math.random() - 0.5);
+            return shuffled.slice(0, count);
+        }
+
+        async function fetchMastodonProfile(instance, username) {
+            const apiUrl = `https://${instance}/api/v1/accounts/lookup?acct=${username}`;
+            const response = await fetch(apiUrl);
+            
+            if (!response.ok) {
+                throw new Error(response.status === 404 ? 'Profile not found' : 'Failed to fetch profile data');
+            }
+            
+            const data = await response.json();
+            const bioText = data.note ? data.note.replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, ' ').trim() : '';
+            
+            return {
+                username: data.username,
+                displayName: data.display_name || data.username,
+                bio: bioText || 'Exploring the Fediverse',
+                avatarUrl: data.avatar,
+                instance: instance
+            };
+        }
+
+        async function loadAvatar(url) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = () => resolve(img);
+                img.onerror = () => resolve(null);
+                img.src = url;
+            });
+        }
+
+        async function fetchProfile() {
+            const profileInput = document.getElementById('profileInput').value.trim();
+            const fetchBtn = document.getElementById('fetchBtn');
+            
+            if (!profileInput) {
+                showNotification('Please enter your Mastodon profile URL or username', 'error');
+                return;
+            }
+            
+            const parsed = parseMastodonInput(profileInput);
+            if (!parsed) {
+                showNotification('Invalid format. Use: https://instance.com/@username or @username@instance.com', 'error');
+                return;
+            }
+            
+            fetchBtn.disabled = true;
+            
+            try {
+                const profileData = await fetchMastodonProfile(parsed.instance, parsed.username);
+                
+                document.getElementById('usernameField').value = `@${profileData.username}@${parsed.instance}`;
+                document.getElementById('displayNameField').value = profileData.displayName;
+                document.getElementById('bioField').value = profileData.bio;
+                
+                if (profileData.avatarUrl) {
+                    currentAvatar = await loadAvatar(profileData.avatarUrl);
+                } else {
+                    currentAvatar = null;
+                }
+                
+                document.getElementById('editableFields').classList.remove('hidden');
+                showNotification('Profile fetched successfully! Edit if needed and click "Generate Covers"');
+                
+            } catch (error) {
+                showNotification(error.message, 'error');
+            } finally {
+                fetchBtn.disabled = false;
+            }
+        }
+
+        function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+            const words = text.split(' ');
+            let line = '';
+            const lines = [];
+            
+            for (let word of words) {
+                const testLine = line + word + ' ';
+                const metrics = ctx.measureText(testLine);
+                if (metrics.width > maxWidth && line.length > 0) {
+                    lines.push(line.trim());
+                    line = word + ' ';
+                } else {
+                    line = testLine;
+                }
+            }
+            lines.push(line.trim());
+            
+            lines.forEach((line, i) => {
+                ctx.fillText(line, x, y + (i * lineHeight));
+            });
+            
+            return lines.length;
+        }
+
+        function calculateFontSize(ctx, text, maxWidth, baseSize) {
+            let size = baseSize;
+            ctx.font = `bold ${size}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+            while (ctx.measureText(text).width > maxWidth && size > 20) {
+                size -= 2;
+                ctx.font = `bold ${size}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+            }
+            return size;
+        }
+
+        function drawAvatar(ctx, avatar, x, y, size) {
+            if (!avatar) return;
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(x + size/2, y + size/2, size/2, 0, Math.PI * 2);
+            ctx.closePath();
+            ctx.clip();
+            ctx.drawImage(avatar, x, y, size, size);
+            ctx.restore();
+            
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.lineWidth = 5;
+            ctx.beginPath();
+            ctx.arc(x + size/2, y + size/2, size/2, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        // Template 1: Luxury Minimal
+        function drawLuxuryMinimal(canvas, data, scheme) {
+            const ctx = canvas.getContext('2d');
+            
+            const gradient = ctx.createLinearGradient(0, 0, 1500, 500);
+            gradient.addColorStop(0, scheme.bg1);
+            gradient.addColorStop(0.5, scheme.bg2);
+            gradient.addColorStop(1, scheme.bg1);
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 1500, 500);
+            
+            ctx.globalAlpha = 0.08;
+            ctx.fillStyle = scheme.accent1;
+            ctx.beginPath();
+            ctx.arc(1350, 120, 250, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(150, 420, 180, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+            
+            if (currentAvatar) {
+                ctx.save();
+                ctx.shadowColor = scheme.accent1;
+                ctx.shadowBlur = 40;
+                drawAvatar(ctx, currentAvatar, 80, 100, 160);
+                ctx.restore();
+            }
+            
+            ctx.fillStyle = scheme.text;
+            const nameSize = calculateFontSize(ctx, data.displayName, 1050, 75);
+            ctx.font = `bold ${nameSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+            ctx.fillText(data.displayName, currentAvatar ? 280 : 80, 175);
+            
+            ctx.fillStyle = scheme.accent1;
+            ctx.font = 'bold 34px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.fillText(data.username, currentAvatar ? 280 : 80, 220);
+            
+            const gradient2 = ctx.createLinearGradient(currentAvatar ? 280 : 80, 245, 750, 245);
+            gradient2.addColorStop(0, scheme.accent1);
+            gradient2.addColorStop(1, scheme.accent2);
+            ctx.fillStyle = gradient2;
+            ctx.fillRect(currentAvatar ? 280 : 80, 245, 400, 5);
+            
+            if (data.bio) {
+                ctx.fillStyle = scheme.subtext;
+                ctx.font = '29px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+                wrapText(ctx, data.bio, currentAvatar ? 320 : 120, 290, 1050, 42);
+            }
+        }
+
+        // Template 2: Royal Elegance
+        function drawRoyalElegance(canvas, data, scheme) {
+            const ctx = canvas.getContext('2d');
+            
+            ctx.fillStyle = scheme.bg1;
+            ctx.fillRect(0, 0, 1500, 500);
+            
+            ctx.globalAlpha = 0.12;
+            const gradient1 = ctx.createLinearGradient(950, 0, 1500, 500);
+            gradient1.addColorStop(0, scheme.accent1);
+            gradient1.addColorStop(1, scheme.accent2);
+            ctx.fillStyle = gradient1;
+            ctx.beginPath();
+            ctx.moveTo(1050, 0);
+            ctx.lineTo(1500, 0);
+            ctx.lineTo(1500, 500);
+            ctx.closePath();
+            ctx.fill();
+            
+            ctx.fillStyle = scheme.accent2;
+            ctx.beginPath();
+            ctx.moveTo(0, 320);
+            ctx.lineTo(380, 500);
+            ctx.lineTo(0, 500);
+            ctx.closePath();
+            ctx.fill();
+            ctx.globalAlpha = 1;
+            
+            const barGradient = ctx.createLinearGradient(50, 0, 50, 500);
+            barGradient.addColorStop(0, scheme.accent1);
+            barGradient.addColorStop(0.5, scheme.accent2);
+            barGradient.addColorStop(1, scheme.accent1);
+            ctx.fillStyle = barGradient;
+            ctx.shadowColor = scheme.accent1;
+            ctx.shadowBlur = 20;
+            ctx.fillRect(50, 70, 18, 360);
+            ctx.shadowBlur = 0;
+            
+            if (currentAvatar) {
+                ctx.save();
+                ctx.shadowColor = scheme.accent2;
+                ctx.shadowBlur = 35;
+                drawAvatar(ctx, currentAvatar, 110, 90, 130);
+                ctx.restore();
+            }
+            
+            ctx.fillStyle = scheme.text;
+            const nameSize = calculateFontSize(ctx, data.displayName, 950, 68);
+            ctx.font = `bold ${nameSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+            ctx.fillText(data.displayName, currentAvatar ? 280 : 110, 175);
+            
+            ctx.fillStyle = scheme.accent1;
+            ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.fillText(data.username, currentAvatar ? 280 : 110, 222);
+            
+            if (data.bio) {
+                ctx.fillStyle = scheme.subtext;
+                ctx.font = '27px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+                wrapText(ctx, data.bio, currentAvatar ? 320 : 150, 280, 1000, 40);
+            }
+        }
+
+        // Template 3: Premium Glow
+        function drawPremiumGlow(canvas, data, scheme) {
+            const ctx = canvas.getContext('2d');
+            
+            const mainGradient = ctx.createRadialGradient(750, 250, 100, 750, 250, 650);
+            mainGradient.addColorStop(0, scheme.bg2);
+            mainGradient.addColorStop(1, scheme.bg1);
+            ctx.fillStyle = mainGradient;
+            ctx.fillRect(0, 0, 1500, 500);
+            
+            ctx.globalAlpha = 0.18;
+            for (let i = 0; i < 6; i++) {
+                const gradient = ctx.createRadialGradient(250 * i, 250, 0, 250 * i, 250, 280);
+                gradient.addColorStop(0, i % 2 === 0 ? scheme.accent1 : scheme.accent2);
+                gradient.addColorStop(1, 'transparent');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, 1500, 500);
+            }
+            ctx.globalAlpha = 1;
+            
+            if (currentAvatar) {
+                ctx.save();
+                ctx.shadowColor = scheme.accent1;
+                ctx.shadowBlur = 45;
+                drawAvatar(ctx, currentAvatar, 100, 130, 160);
+                ctx.restore();
+            }
+            
+            ctx.shadowColor = scheme.accent1;
+            ctx.shadowBlur = 25;
+            ctx.fillStyle = scheme.text;
+            const nameSize = calculateFontSize(ctx, data.displayName, 1000, 72);
+            ctx.font = `bold ${nameSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+            ctx.fillText(data.displayName, currentAvatar ? 300 : 100, 200);
+            ctx.shadowBlur = 0;
+            
+            const gradient2 = ctx.createLinearGradient(currentAvatar ? 300 : 100, 230, 950, 230);
+            gradient2.addColorStop(0, scheme.accent1);
+            gradient2.addColorStop(0.5, scheme.accent2);
+            gradient2.addColorStop(1, scheme.accent1);
+            ctx.fillStyle = gradient2;
+            ctx.fillRect(currentAvatar ? 300 : 100, 230, 550, 6);
+            
+            ctx.fillStyle = scheme.accent2;
+            ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.fillText(data.username, currentAvatar ? 300 : 100, 275);
+            
+            if (data.bio) {
+                ctx.fillStyle = scheme.subtext;
+                ctx.font = '28px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+                wrapText(ctx, data.bio, currentAvatar ? 340 : 140, 320, 1050, 40);
+            }
+        }
+
+        // Template 4: Executive Wave
+        function drawExecutiveWave(canvas, data, scheme) {
+            const ctx = canvas.getContext('2d');
+            
+            ctx.fillStyle = scheme.bg1;
+            ctx.fillRect(0, 0, 1500, 500);
+            
+            ctx.globalAlpha = 0.25;
+            for (let i = 0; i < 5; i++) {
+                const gradient = ctx.createLinearGradient(0, 80 + i * 70, 1500, 230 + i * 70);
+                gradient.addColorStop(0, scheme.accent1);
+                gradient.addColorStop(0.5, scheme.accent2);
+                gradient.addColorStop(1, scheme.accent1);
+                ctx.fillStyle = gradient;
+                
+                ctx.beginPath();
+                ctx.moveTo(0, 90 + i * 50);
+                for (let x = 0; x <= 1500; x += 15) {
+                    const y = 90 + i * 50 + Math.sin(x / 70 + i) * 35;
+                    ctx.lineTo(x, y);
+                }
+                ctx.lineTo(1500, 500);
+                ctx.lineTo(0, 500);
+                ctx.closePath();
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+            
+            if (currentAvatar) {
+                ctx.save();
+                ctx.shadowColor = scheme.accent2;
+                ctx.shadowBlur = 30;
+                drawAvatar(ctx, currentAvatar, 95, 110, 150);
+                ctx.restore();
+            }
+            
+            ctx.shadowColor = scheme.accent2;
+            ctx.shadowBlur = 18;
+            ctx.fillStyle = scheme.text;
+            const nameSize = calculateFontSize(ctx, data.displayName, 1000, 70);
+            ctx.font = `bold ${nameSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+            ctx.fillText(data.displayName, currentAvatar ? 285 : 95, 185);
+            ctx.shadowBlur = 0;
+            
+            ctx.fillStyle = scheme.accent1;
+            ctx.font = 'bold 34px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.fillText(data.username, currentAvatar ? 285 : 95, 230);
+            
+            if (data.bio) {
+                ctx.fillStyle = scheme.subtext;
+                ctx.font = '28px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+                wrapText(ctx, data.bio, currentAvatar ? 325 : 135, 275, 1050, 42);
+            }
+        }
+
+        // Template 5: Prestige Geometric
+        function drawPrestigeGeometric(canvas, data, scheme) {
+            const ctx = canvas.getContext('2d');
+            
+            const gradient = ctx.createLinearGradient(0, 0, 1500, 500);
+            gradient.addColorStop(0, scheme.bg1);
+            gradient.addColorStop(0.5, scheme.bg2);
+            gradient.addColorStop(1, scheme.bg1);
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 1500, 500);
+            
+            ctx.globalAlpha = 0.15;
+            ctx.fillStyle = scheme.accent1;
+            ctx.beginPath();
+            ctx.moveTo(1180, 0);
+            ctx.lineTo(1500, 0);
+            ctx.lineTo(1500, 280);
+            ctx.lineTo(1080, 120);
+            ctx.closePath();
+            ctx.fill();
+            
+            ctx.fillStyle = scheme.accent2;
+            ctx.beginPath();
+            ctx.moveTo(0, 340);
+            ctx.lineTo(320, 240);
+            ctx.lineTo(370, 500);
+            ctx.lineTo(0, 500);
+            ctx.closePath();
+            ctx.fill();
+            
+            ctx.strokeStyle = scheme.accent1;
+            ctx.lineWidth = 4;
+            ctx.shadowColor = scheme.accent1;
+            ctx.shadowBlur = 15;
+            ctx.beginPath();
+            ctx.arc(1220, 360, 110, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            ctx.strokeStyle = scheme.accent2;
+            ctx.beginPath();
+            ctx.rect(140, 70, 75, 75);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            ctx.globalAlpha = 1;
+            
+            if (currentAvatar) {
+                ctx.save();
+                ctx.shadowColor = scheme.accent1;
+                ctx.shadowBlur = 30;
+                drawAvatar(ctx, currentAvatar, 110, 165, 140);
+                ctx.restore();
+            }
+            
+            ctx.fillStyle = scheme.text;
+            const nameSize = calculateFontSize(ctx, data.displayName, 1000, 68);
+            ctx.font = `bold ${nameSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+            ctx.fillText(data.displayName, currentAvatar ? 285 : 110, 215);
+            
+            ctx.globalAlpha = 0.85;
+            const accentGradient = ctx.createLinearGradient(currentAvatar ? 285 : 110, 245, 650, 245);
+            accentGradient.addColorStop(0, scheme.accent1);
+            accentGradient.addColorStop(1, scheme.accent2);
+            ctx.fillStyle = accentGradient;
+            ctx.beginPath();
+            ctx.moveTo(currentAvatar ? 285 : 110, 245);
+            ctx.lineTo(currentAvatar ? 310 : 135, 261);
+            ctx.lineTo(630, 261);
+            ctx.lineTo(650, 245);
+            ctx.closePath();
+            ctx.fill();
+            ctx.globalAlpha = 1;
+            
+            ctx.fillStyle = scheme.accent1;
+            ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.fillText(data.username, currentAvatar ? 285 : 110, 300);
+            
+            if (data.bio) {
+                ctx.fillStyle = scheme.subtext;
+                ctx.font = '27px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+                wrapText(ctx, data.bio, currentAvatar ? 325 : 150, 345, 1000, 40);
+            }
+        }
+
+        // Template 6: Celestial Aura
+        function drawCelestialAura(canvas, data, scheme) {
+            const ctx = canvas.getContext('2d');
+            
+            const gradient = ctx.createRadialGradient(750, 250, 0, 750, 250, 700);
+            gradient.addColorStop(0, scheme.bg2);
+            gradient.addColorStop(1, scheme.bg1);
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 1500, 500);
+            
+            ctx.globalAlpha = 0.22;
+            const glow1 = ctx.createRadialGradient(220, 140, 0, 220, 140, 320);
+            glow1.addColorStop(0, scheme.accent1);
+            glow1.addColorStop(1, 'transparent');
+            ctx.fillStyle = glow1;
+            ctx.fillRect(0, 0, 1500, 500);
+            
+            const glow2 = ctx.createRadialGradient(1220, 380, 0, 1220, 380, 380);
+            glow2.addColorStop(0, scheme.accent2);
+            glow2.addColorStop(1, 'transparent');
+            ctx.fillStyle = glow2;
+            ctx.fillRect(0, 0, 1500, 500);
+            
+            const glow3 = ctx.createRadialGradient(750, 250, 0, 750, 250, 200);
+            glow3.addColorStop(0, scheme.accent1);
+            glow3.addColorStop(1, 'transparent');
+            ctx.fillStyle = glow3;
+            ctx.fillRect(0, 0, 1500, 500);
+            ctx.globalAlpha = 1;
+            
+            if (currentAvatar) {
+                ctx.save();
+                ctx.shadowColor = scheme.accent1;
+                ctx.shadowBlur = 50;
+                drawAvatar(ctx, currentAvatar, 115, 125, 165);
+                ctx.restore();
+            }
+            
+            ctx.shadowColor = scheme.accent1;
+            ctx.shadowBlur = 22;
+            ctx.fillStyle = scheme.text;
+            const nameSize = calculateFontSize(ctx, data.displayName, 1000, 73);
+            ctx.font = `bold ${nameSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+            ctx.fillText(data.displayName, currentAvatar ? 320 : 115, 195);
+            ctx.shadowBlur = 0;
+            
+            const lineGradient = ctx.createLinearGradient(currentAvatar ? 320 : 115, 225, 950, 225);
+            lineGradient.addColorStop(0, scheme.accent1);
+            lineGradient.addColorStop(0.5, scheme.accent2);
+            lineGradient.addColorStop(1, 'transparent');
+            ctx.fillStyle = lineGradient;
+            ctx.shadowColor = scheme.accent1;
+            ctx.shadowBlur = 10;
+            ctx.fillRect(currentAvatar ? 320 : 115, 225, 630, 5);
+            ctx.shadowBlur = 0;
+            
+            ctx.fillStyle = scheme.accent2;
+            ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.fillText(data.username, currentAvatar ? 320 : 115, 270);
+            
+            if (data.bio) {
+                ctx.fillStyle = scheme.subtext;
+                ctx.font = '28px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+                wrapText(ctx, data.bio, currentAvatar ? 360 : 155, 315, 1050, 42);
+            }
+        }
+
+        // Template 7: Apex Tech
+        function drawApexTech(canvas, data, scheme) {
+            const ctx = canvas.getContext('2d');
+            
+            ctx.fillStyle = scheme.bg1;
+            ctx.fillRect(0, 0, 1500, 500);
+            
+            ctx.globalAlpha = 0.06;
+            ctx.strokeStyle = scheme.accent1;
+            ctx.lineWidth = 1.5;
+            for (let x = 0; x < 1500; x += 45) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, 500);
+                ctx.stroke();
+            }
+            for (let y = 0; y < 500; y += 45) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(1500, y);
+                ctx.stroke();
+            }
+            ctx.globalAlpha = 1;
+            
+            ctx.strokeStyle = scheme.accent1;
+            ctx.lineWidth = 4;
+            ctx.shadowColor = scheme.accent1;
+            ctx.shadowBlur = 15;
+            ctx.beginPath();
+            ctx.moveTo(75, 75);
+            ctx.lineTo(75, 125);
+            ctx.lineTo(125, 125);
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(1425, 375);
+            ctx.lineTo(1425, 425);
+            ctx.lineTo(1375, 425);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            
+            if (currentAvatar) {
+                ctx.save();
+                ctx.shadowColor = scheme.accent2;
+                ctx.shadowBlur = 25;
+                drawAvatar(ctx, currentAvatar, 95, 140, 140);
+                ctx.restore();
+            }
+            
+            ctx.fillStyle = scheme.text;
+            const nameSize = calculateFontSize(ctx, data.displayName, 1000, 66);
+            ctx.font = `bold ${nameSize}px "Courier New", monospace`;
+            ctx.fillText(data.displayName, currentAvatar ? 270 : 95, 210);
+            
+            const gradient = ctx.createLinearGradient(currentAvatar ? 270 : 95, 240, 950, 240);
+            gradient.addColorStop(0, 'transparent');
+            gradient.addColorStop(0.25, scheme.accent1);
+            gradient.addColorStop(0.75, scheme.accent2);
+            gradient.addColorStop(1, 'transparent');
+            ctx.fillStyle = gradient;
+            ctx.shadowColor = scheme.accent1;
+            ctx.shadowBlur = 8;
+            ctx.fillRect(currentAvatar ? 270 : 95, 240, 750, 4);
+            ctx.shadowBlur = 0;
+            
+            ctx.fillStyle = scheme.accent1;
+            ctx.font = 'bold 30px "Courier New", monospace';
+            ctx.fillText(data.username, currentAvatar ? 270 : 95, 283);
+            
+            if (data.bio) {
+                ctx.fillStyle = scheme.subtext;
+                ctx.font = '26px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+                wrapText(ctx, data.bio, currentAvatar ? 310 : 135, 328, 1050, 39);
+            }
+        }
+
+        // Template 8: Opulent Flow
+        function drawOpulentFlow(canvas, data, scheme) {
+            const ctx = canvas.getContext('2d');
+            
+            ctx.fillStyle = scheme.bg1;
+            ctx.fillRect(0, 0, 1500, 500);
+            
+            ctx.globalAlpha = 0.18;
+            for (let i = 0; i < 7; i++) {
+                const gradient = ctx.createRadialGradient(215 * i, 90 + i * 55, 0, 215 * i, 90 + i * 55, 210);
+                gradient.addColorStop(0, i % 2 === 0 ? scheme.accent1 : scheme.accent2);
+                gradient.addColorStop(1, 'transparent');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(215 * i, 90 + i * 55, 190, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+            
+            if (currentAvatar) {
+                ctx.save();
+                ctx.shadowColor = scheme.accent2;
+                ctx.shadowBlur = 35;
+                drawAvatar(ctx, currentAvatar, 98, 120, 155);
+                ctx.restore();
+            }
+            
+            ctx.fillStyle = scheme.text;
+            const nameSize = calculateFontSize(ctx, data.displayName, 1000, 72);
+            ctx.font = `bold ${nameSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+            ctx.fillText(data.displayName, currentAvatar ? 290 : 98, 195);
+            
+            ctx.globalAlpha = 0.75;
+            const gradient2 = ctx.createLinearGradient(currentAvatar ? 290 : 98, 225, 850, 225);
+            gradient2.addColorStop(0, scheme.accent1);
+            gradient2.addColorStop(0.5, scheme.accent2);
+            gradient2.addColorStop(1, scheme.accent1);
+            ctx.fillStyle = gradient2;
+            
+            ctx.beginPath();
+            ctx.ellipse((currentAvatar ? 290 : 98) + 280, 230, 280, 10, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+            
+            ctx.fillStyle = scheme.accent1;
+            ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.fillText(data.username, currentAvatar ? 290 : 98, 270);
+            
+            if (data.bio) {
+                ctx.fillStyle = scheme.subtext;
+                ctx.font = '27px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+                wrapText(ctx, data.bio, currentAvatar ? 330 : 138, 315, 1050, 40);
+            }
+        }
+
+        async function generateCovers() {
+            const username = document.getElementById('usernameField').value.trim();
+            const displayName = document.getElementById('displayNameField').value.trim();
+            const bio = document.getElementById('bioField').value.trim();
+            
+            if (!username || !displayName) {
+                showNotification('Please fetch a profile first', 'error');
+                return;
+            }
+            
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('results').classList.add('hidden');
+            
+            const data = {
+                username: username,
+                displayName: displayName,
+                bio: bio || 'Exploring the Fediverse'
+            };
+            
+            const randomSchemes = getRandomSchemes(8);
+            
+            setTimeout(() => {
+                drawLuxuryMinimal(document.getElementById('canvas1'), data, randomSchemes[0]);
+                drawRoyalElegance(document.getElementById('canvas2'), data, randomSchemes[1]);
+                drawPremiumGlow(document.getElementById('canvas3'), data, randomSchemes[2]);
+                drawExecutiveWave(document.getElementById('canvas4'), data, randomSchemes[3]);
+                drawPrestigeGeometric(document.getElementById('canvas5'), data, randomSchemes[4]);
+                drawCelestialAura(document.getElementById('canvas6'), data, randomSchemes[5]);
+                drawApexTech(document.getElementById('canvas7'), data, randomSchemes[6]);
+                drawOpulentFlow(document.getElementById('canvas8'), data, randomSchemes[7]);
+                
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('results').classList.remove('hidden');
+                document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+                
+                showNotification('All 8 luxury cover designs generated with new colors!');
+            }, 500);
+        }
+
+        function downloadCover(canvasId, templateName) {
+            const canvas = document.getElementById(canvasId);
+            const link = document.createElement('a');
+            const username = document.getElementById('usernameField').value.trim().replace(/@/g, '');
+            link.download = `mastodon-cover-${username}-${templateName}-${Date.now()}.png`;
+            link.href = canvas.toDataURL('image/png', 1.0);
+            link.click();
+            showNotification(`Downloaded ${templateName} cover successfully!`);
+        }
+
+        function tryExample() {
+            document.getElementById('profileInput').value = '@xsukax@infosec.exchange';
+            showNotification('Example profile loaded! Click "Fetch Profile" to load the data.');
+        }
+
+        document.getElementById('profileInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') fetchProfile();
+        });
+    </script>
+</body>
+</html>
